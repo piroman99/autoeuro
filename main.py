@@ -75,7 +75,7 @@ df_to_create.to_csv('/home/ivan/create.csv',index=False)
 
 # создаем отдельный df для отключение
 df_to_disable = df1[~df1['sku'].isin(df_merged['КаталожныйНомер'])]
-df_to_disable ['status'] = 'draft'
+df_to_disable.loc[:, 'status'] = 'draft'
 df_to_disable.to_csv('/home/ivan/disable.csv',index=False)
 
 
