@@ -61,7 +61,7 @@ df1 = pd.DataFrame(products)
 df1.to_csv(oldbase,index=False)
 
 print('Beginning file download with wget module')
-url = 'https://price.autoeuro.ru/PriceAE_(4873159461).zip?1703024450'
+url = 'https://price.autoeuro.ru/PriceAE_(*******).zip?********'
 try:
     wget.download(url, '/home/ivan/price.zip')
     print('Succes download price :) ')
