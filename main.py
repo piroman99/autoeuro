@@ -61,7 +61,7 @@ df1 = pd.DataFrame(products)
 df1.to_csv(oldbase,index=False)
 
 print('Beginning file download with wget module')
-url = 'https://price.autoeuro.ru/PriceAE_(*******).zip?********'
+url = 'https://price.autoeuro.ru/PriceAE_(**********).zip?******'
 try:
     wget.download(url, '/home/ivan/price.zip')
     print('Succes download price :) ')
@@ -94,22 +94,50 @@ df_to_disable.to_csv('/home/ivan/disable.csv',index=False)
 
 # выбираем минимальный набор столбцов для создания новых товаров
 df_to_create = df_to_create[['Производитель','КаталожныйНомер','НомерПроизводителя','ОригинальныйНомер', 'Применение', 'Цена', 'МинУпаковка','Наличие']]
-
+df_to_create['ОригинальныйНомер']= df_to_create['ОригинальныйНомер'].fillna(' ')
 print('считаем цены новых товаров')
-df_to_create['price']=round(df_to_create['Цена']*nacenka , 2)
 
+df_to_create.loc[(df_to_create['МинУпаковка'] == 0), 'МинУпаковка'] = 1
+df_to_create['price']=round(df_to_create['Цена']*df_to_create['МинУпаковка']*nacenka , 2)
+
+print('манипулируем колонками')
+df_to_create['name']=df_to_create['Производитель']+' '+df_to_create['НомерПроизводителя']
+df_to_create.МинУпаковка=df_to_create.МинУпаковка.astype(str)
+df_to_create[ 'description'] = 'Оригинальный номер(а): '+df_to_create['ОригинальныйНомер']
+df_to_create.description = df_to_create.description+'<p>Минимальная упаковка: ' + df_to_create['МинУпаковка']+'шт.'
 # переименовываем для json
 df_to_create = df_to_create.rename(
     columns={
-#        "НомерПроизводителя": "name",
-#        "Применение": "short_description",
-#        "Цена": "price",
+        "Применение": "short_description",
         "КаталожныйНомер": "sku",
         "Наличие": "stock_quantity"
     })
+df_to_create = df_to_create[['sku','name','price','stock_quantity','short_description','description']]
 # добавим генерацию чпу
-#df_to_create['slug'] = df_to_create['name'].apply(slugify)
+print('генерация чпу')
+df_to_create['slug'] = df_to_create['name'].apply(slugify)
 df_to_create.to_csv('/home/ivan/create2.csv',index=False)
 
+print('делаем  json')
 products_to_create = json.loads(df_to_create.to_json(orient="records"))
+
+print('загружаем на сайт')
+# Создаем список для хранения разбитых данных
+split_products_to_create = []
+# разбиваем по 500 элементов
+while products_to_create:
+    split_products_to_create.append(products_to_create[:batch_size])
+    products_to_create = products_to_create[batch_size:]
+# отправляем в базу
+for batch in split_products_to_create:
+    json_data = json.dumps({"create": batch})
+    response = wcapi.post("products/batch", json_data)
+    if response.status_code == 201:
+        # Обработка успешного создания товаров
+        created_products = response.json()
+        for product in created_products["create"]:
+            print("Товар успешно создан:", product["name"])
+    else:
+        # Обработка ошибки при создании товаров
+        print("Ошибка при создании товаров:", response.json())
 
